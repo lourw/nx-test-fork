@@ -6,6 +6,8 @@ on:
     - cron: "0 20 * * 1-5" # Monday - Friday, at 20:00 UTC (8pm UTC)
   release:
     types: [ published ]
+  # Manual workflow trigger
+  workflow_dispatch:
 
 # Dynamically generate the display name for the GitHub UI based on the event type and inputs
 run-name: ${{ github.event.inputs.pr && format('PR Release for {0}', github.event.inputs.pr) || github.event_name == 'schedule' && 'Canary Release' || github.event_name == 'workflow_dispatch' && !github.event.inputs.pr && 'Release Dry-Run' || github.ref_name }}
@@ -475,3 +477,4 @@ jobs:
               issue_number: ${{ github.event.inputs.pr }},
               body: message
             });
+
