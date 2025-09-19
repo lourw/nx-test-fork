@@ -79,9 +79,10 @@ jobs:
               choco install openjdk --version=21.0.0 -y
               rustup target add aarch64-pc-windows-msvc
             build: |
-              $env:JAVA_HOME = "C:\Program Files\OpenJDK\jdk-21"
-              $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-              java --version
+              export NX_VERBOSE_LOGGING=true
+              export JAVA_HOME="C:\Program Files\OpenJDK\jdk-21"
+              export PATH="$JAVA_HOME\bin:$PATH"
+              java -version
               pnpm nx run-many --target=build-native -- --target=x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
           # Windows 32bit (not needed)
@@ -169,7 +170,7 @@ jobs:
               apt-get install -y openjdk-21-jdk
               export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
               export PATH="$JAVA_HOME/bin:$PATH"
-              java --version
+              java -version
 
               curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
               apt-get install -y nodejs=22.16.0-1nodesource1
@@ -239,9 +240,9 @@ jobs:
               choco install openjdk --version=21.0.0 -y
               rustup target add aarch64-pc-windows-msvc
             build: |
-              $env:JAVA_HOME = "C:\Program Files\OpenJDK\jdk-21"
-              $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-              java --version
+              export JAVA_HOME="C:\Program Files\OpenJDK\jdk-21"
+              export PATH="$JAVA_HOME\bin:$PATH"
+              java -version
               pnpm nx run-many --target=build-native -- --target=aarch64-pc-windows-msvc
     name: stable - ${{ matrix.settings.target }} - node@22.16.0
     runs-on: ${{ matrix.settings.host }}
