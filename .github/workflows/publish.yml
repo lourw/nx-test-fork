@@ -6,6 +6,9 @@ on:
     - cron: "0 20 * * 1-5" # Monday - Friday, at 20:00 UTC (8pm UTC)
   release:
     types: [ published ]
+  push:
+    branches:
+      - master
 
 # Dynamically generate the display name for the GitHub UI based on the event type and inputs
 run-name: ${{ github.event.inputs.pr && format('PR Release for {0}', github.event.inputs.pr) || github.event_name == 'schedule' && 'Canary Release' || github.event_name == 'workflow_dispatch' && !github.event.inputs.pr && 'Release Dry-Run' || github.ref_name }}
@@ -30,7 +33,7 @@ jobs:
   #     ref resolution in actions/checkout. The exact version will be generated within scripts/nx-release.ts.
   resolve-required-data:
     name: Resolve Required Data
-    if: ${{ github.repository_owner == 'nrwl' }}
+    if: ${{ github.repository_owner == 'lourw' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.script.outputs.version }}
@@ -61,7 +64,7 @@ jobs:
 
   build:
     needs: [ resolve-required-data ]
-    if: ${{ github.repository_owner == 'nrwl' }}
+    if: ${{ github.repository_owner == 'lourw' }}
     strategy:
       fail-fast: false
       matrix:
@@ -74,8 +77,13 @@ jobs:
               pnpm nx run-many --target=build-native -- --target=x86_64-apple-darwin
           - host: windows-latest
             setup: |-
+              choco install openjdk --version=21.0.0 -y
               rustup target add aarch64-pc-windows-msvc
-            build: pnpm nx run-many --target=build-native -- --target=x86_64-pc-windows-msvc
+            build: |
+              export JAVA_HOME="C:\Program Files\OpenJDK\jdk-21"
+              export PATH="$JAVA_HOME\bin:$PATH"
+              java -version
+              pnpm nx run-many --target=build-native -- --target=x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
           # Windows 32bit (not needed)
           # - host: windows-latest
@@ -89,16 +97,22 @@ jobs:
               set -e
               apt-get update
 
+              # Install Java 21
+              apt-get install -y openjdk-21-jdk
+              export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+              export PATH="$JAVA_HOME/bin:$PATH"
+              java --version
+
               curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
               apt-get install -y nodejs=22.16.0-1nodesource1
-            
+
               export PATH="/usr/local/bin:$PATH"
               node --version
               npm --version
-            
+
               npm i -g pnpm@${PNPM_VERSION} --force
               pnpm --version
-            
+
               pnpm install --frozen-lockfile
               rustup target add x86_64-unknown-linux-gnu
               pnpm nx run-many --verbose --target=build-native -- --target=x86_64-unknown-linux-gnu
@@ -109,21 +123,26 @@ jobs:
               bash -c "
                 set -e
                 echo 'https://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories
-                apk add --no-cache curl xz
+                apk add --no-cache curl xz openjdk21
+
+                # Set up Java 21
+                export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+                export PATH=\"\$JAVA_HOME/bin:\$PATH\"
+                java --version
 
                 curl -fsSL https://unofficial-builds.nodejs.org/download/release/v22.16.0/node-v22.16.0-linux-x64-musl.tar.xz -o node.tar.xz
                 tar -xJf node.tar.xz
                 mv node-v22.16.0-linux-x64-musl /usr/local/node
-            
+
                 export PATH=\"/usr/local/node/bin:\$PATH\"
-            
+
                 echo Node: \$(node -v)
                 echo NPM: \$(npm -v)
-            
+
                 # Install PNPM
                 npm i -g pnpm@${PNPM_VERSION} --force
                 pnpm --version
-            
+
                 # Install deps and run native build
                 pnpm install --frozen-lockfile
                 rustup target add x86_64-unknown-linux-musl
@@ -146,17 +165,23 @@ jobs:
             build: |
               set -e
               apt-get update
-            
+
+              # Install Java 21
+              apt-get install -y openjdk-21-jdk
+              export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+              export PATH="$JAVA_HOME/bin:$PATH"
+              java --version
+
               curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
               apt-get install -y nodejs=22.16.0-1nodesource1
-            
+
               export PATH="/usr/local/bin:$PATH"
               node --version
               npm --version
-            
+
               npm i -g pnpm@${PNPM_VERSION} --force
               pnpm --version
-            
+
               pnpm install --frozen-lockfile
               rustup target add aarch64-unknown-linux-gnu
               pnpm nx run-many --verbose --target=build-native -- --target=aarch64-unknown-linux-gnu
@@ -184,31 +209,41 @@ jobs:
               bash -c "
                 set -e
                 echo 'https://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories
-                apk add --no-cache curl xz
-            
+                apk add --no-cache curl xz openjdk21
+
+                # Set up Java 21
+                export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+                export PATH=\"\$JAVA_HOME/bin:\$PATH\"
+                java --version
+
                 curl -fsSL https://unofficial-builds.nodejs.org/download/release/v22.16.0/node-v22.16.0-linux-x64-musl.tar.xz -o node.tar.xz
                 tar -xJf node.tar.xz
                 mv node-v22.16.0-linux-x64-musl /usr/local/node
-            
+
                 export PATH=\"/usr/local/node/bin:\$PATH\"
-            
+
                 echo Node: \$(node -v)
                 echo NPM: \$(npm -v)
-            
+
                 # Install PNPM
                 npm i -g pnpm@${PNPM_VERSION} --force
                 pnpm --version
-            
+
                 # Install deps and run native build
                 pnpm install --frozen-lockfile
-                rustup target add aarch64-unknown-linux-musl  
-                pnpm nx run-many --verbose --target=build-native -- --target=aarch64-unknown-linux-musl  
+                rustup target add aarch64-unknown-linux-musl
+                pnpm nx run-many --verbose --target=build-native -- --target=aarch64-unknown-linux-musl
               "
           - host: windows-latest
             target: aarch64-pc-windows-msvc
             setup: |-
+              choco install openjdk --version=21.0.0 -y
               rustup target add aarch64-pc-windows-msvc
-            build: pnpm nx run-many --target=build-native -- --target=aarch64-pc-windows-msvc
+            build: |
+              export JAVA_HOME="C:\Program Files\OpenJDK\jdk-21"
+              export PATH="$JAVA_HOME\bin:$PATH"
+              java -version
+              pnpm nx run-many --target=build-native -- --target=aarch64-pc-windows-msvc
     name: stable - ${{ matrix.settings.target }} - node@22.16.0
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -297,7 +332,7 @@ jobs:
 
   build-freebsd:
     needs: [ resolve-required-data ]
-    if: ${{ github.repository_owner == 'nrwl' }}
+    if: ${{ github.repository_owner == 'lourw' }}
     runs-on: ubuntu-latest
     name: Build FreeBSD
     timeout-minutes: 45
@@ -322,8 +357,12 @@ jobs:
           run: |
             env
             whoami
-            sudo pkg install -y -f node libnghttp2 www/npm git
+            sudo pkg install -y -f node libnghttp2 www/npm git openjdk17
             sudo npm install --location=global --ignore-scripts pnpm@10.11.1
+            # Set up Java 17
+            export JAVA_HOME=/usr/local/openjdk17
+            export PATH="$JAVA_HOME/bin:$PATH"
+            java --version
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
             source "$HOME/.cargo/env"
@@ -340,6 +379,54 @@ jobs:
             freebsd-version
             echo "Installing dependencies"
             pnpm install --frozen-lockfile --ignore-scripts
+            
+            echo "Checking disk space before cleanup"
+            df -h
+            echo "Removing unnecessary preinstalled packages"
+            # List all packages first to see what's installed
+            sudo pkg info -a
+            echo "Cleaning up to free disk space"
+            # Clean package caches
+            sudo pkg clean -a -y
+            sudo pkg autoremove -y
+            # Remove unnecessary system files
+            sudo rm -rf /usr/local/lib/*.a
+            sudo rm -rf /usr/local/share/doc/*
+            sudo rm -rf /usr/local/share/man/*
+            sudo rm -rf /usr/local/share/examples/*
+            sudo rm -rf /usr/local/share/locale/*
+            sudo rm -rf /usr/local/share/gtk-doc/*
+            sudo rm -rf /usr/local/share/info/*
+            sudo rm -rf /usr/src/*
+            sudo rm -rf /usr/obj/*
+            sudo rm -rf /usr/tests/*
+            sudo rm -rf /usr/lib/debug/*
+            # Clean var directories
+            sudo rm -rf /var/cache/pkg/*
+            sudo rm -rf /var/db/pkg/*.tbz
+            sudo rm -rf /var/log/*.log
+            sudo rm -rf /var/log/*.old
+            # Clean temporary files
+            sudo rm -rf /tmp/*
+            sudo rm -rf /var/tmp/*
+            # Remove Python cache if present
+            sudo find /usr/local -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+            sudo find /usr/local -name "*.pyc" -delete 2>/dev/null || true
+            sudo find /usr/local -name "*.pyo" -delete 2>/dev/null || true
+            # Clean npm/pnpm caches
+            npm cache clean --force || true
+            pnpm store prune || true
+            rm -rf ~/.npm || true
+            rm -rf ~/.pnpm-store || true
+            # Remove Rust build artifacts if any
+            rm -rf ~/.cargo/registry || true
+            rm -rf ~/.cargo/git || true
+            rm -rf ~/.rustup/toolchains/*/share || true
+            # Remove other development tool caches
+            rm -rf ~/.cache/* || true
+            echo "Checking disk space after cleanup"
+            df -h
+            
             echo "Building FreeBSD bindings"
             pnpm nx run-many --verbose --outputStyle stream --target=build-native -- --target=x86_64-unknown-freebsd
             echo "Cleaning up"
@@ -359,7 +446,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: ${{ github.repository_owner == 'nrwl' }}
+    if: ${{ github.repository_owner == 'lourw' }}
     name: Publish
     runs-on: ubuntu-latest
     environment: npm-registry
@@ -387,7 +474,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           check-latest: true
           cache: 'pnpm'
-     
+
       - name: Use npm 11.5.2
         run: npm install -g npm@11.5.2
 
@@ -431,7 +518,7 @@ jobs:
 
   report-pending-publish:
     name: Report Pending Publish to Slack
-    if: ${{ github.repository_owner == 'nrwl' }}
+    if: ${{ github.repository_owner == 'lourw' }}
     needs:
       - resolve-required-data
       - build-freebsd
@@ -452,8 +539,8 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.ACTION_MONITORING_SLACK }}
 
   pr_failure_comment:
-    # Run this job if it is a PR release, running on the nrwl origin, and any of the required jobs failed
-    if: ${{ github.repository_owner == 'nrwl' && github.event.inputs.pr && always() && contains(needs.*.result, 'failure') }}
+    # Run this job if it is a PR release, running on the lourw origin, and any of the required jobs failed
+    if: ${{ github.repository_owner == 'lourw' && github.event.inputs.pr && always() && contains(needs.*.result, 'failure') }}
     needs: [ resolve-required-data, build, build-freebsd, publish ]
     name: (PR Release Failure Only) Create comment for failed PR release
     runs-on: ubuntu-latest
@@ -467,7 +554,7 @@ jobs:
           script: |
             const message = `
               Failed to publish a PR release of this pull request, triggered by @${{ github.triggering_actor }}. 
-              See the failed workflow run at: https://github.com/nrwl/nx/actions/runs/${{ github.run_id }}
+              See the failed workflow run at: https://github.com/lourw/nx/actions/runs/${{ github.run_id }}
             `;
             await github.rest.issues.createComment({
               owner: context.repo.owner,

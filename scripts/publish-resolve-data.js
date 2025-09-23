@@ -71,31 +71,10 @@ async function getPublishResolveData({ github, context }) {
   /** @type {DryRunFlag} */
   const DRY_RUN_ENABLED = '--dry-run';
 
-  switch (process.env.GITHUB_EVENT_NAME) {
-    case 'schedule': {
-      const data = {
-        version: 'canary',
-        dry_run_flag: DRY_RUN_DISABLED,
-        publish_branch: DEFAULT_PUBLISH_BRANCH,
-      };
-      console.log('"schedule" trigger detected', { data });
-      return data;
-    }
-
-    case 'release': {
-      const data = {
-        version: refName,
-        dry_run_flag: DRY_RUN_DISABLED,
-        publish_branch: DEFAULT_PUBLISH_BRANCH,
-      };
-      console.log('"release" trigger detected', { data });
-      return data;
-    }
-
-    default:
-      throw new Error(
-        `The publish.yml workflow was triggered by an unexpected event: "${process.env.GITHUB_EVENT_NAME}"`
-      );
+  return {
+    version: refName,
+    dry_run_flag: DRY_RUN_ENABLED,
+    publish_branch: DEFAULT_PUBLISH_BRANCH,
   }
 }
 
